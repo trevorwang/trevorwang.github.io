@@ -37,10 +37,6 @@ enableGitInfo = false
     name = "github"
     url = "https://github.com/trevorwang"
 
-  [[params.socialIcons]]
-    name = "mail"
-    url = "mailto:trevor.wang@qq.com"
-
   [params.assets]
     favicon = "favicon.png"
     favicon32x32 = "favicon-32x32.png"
