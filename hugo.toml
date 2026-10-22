@@ -42,7 +42,9 @@ enableGitInfo = false
     url = "mailto:trevor.wang@qq.com"
 
   [params.assets]
-    favicon = ""
+    favicon = "favicon.png"
+    favicon32x32 = "favicon-32x32.png"
+    apple_touch_icon = "apple-touch-icon.png"
 
 [pagination]
   pagerSize = 12
