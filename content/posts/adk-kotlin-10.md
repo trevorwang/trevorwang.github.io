@@ -1,0 +1,256 @@
+---
+title: "Kotlin 开发者终于能写生产级 AI Agent 了：Google ADK for Kotlin 1.0 深度解读"
+date: 2026-09-17T07:24:40+08:00
+draft: false
+categories: ["公众号"]
+tags: ["Kotlin", "AI Agent"]
+summary: "做 Kotlin 的人这两年大概都有个心结。"
+cover:
+    image: "/images/adk-kotlin-10/cover.png"
+    alt: "Kotlin 开发者终于能写生产级 AI Agent 了：Google ADK for Kotlin 1.0 深度解读"
+    relative: false
+---
+
+## 一个 KMP 核心的 Agent 框架，意味着什么
+
+做 Kotlin 的人这两年大概都有个心结。
+
+AI Agent 的浪潮一波接一波，但翻开源码一看——LangChain、CrewAI、AutoGen，清一色 Python。想在自己熟悉的 Kotlin 生态里搭一套 Agent，要么自己拿 HTTP 客户端手搓，要么用 Python 写个服务再从 Kotlin 调，中间隔着进程和序列化的双重麻烦。
+
+9 月 9 日，Google 把这个空缺补上了：**Agent Development Kit (ADK) for Kotlin 1.0 正式 GA**。
+
+而且这次不是简单地把 Python 版翻译一遍——它的底层是一个 **Kotlin Multiplatform (KMP) 核心**。
+
+这个细节很关键，后面细说。
+
+## 先看它到底是个什么东西
+
+ADK for Kotlin 的定位很清楚：**与后端模型、会话存储、记忆系统完全解耦**。
+
+说人话就是：Agent 的逻辑用 Kotlin 写一遍，模型可以接 Gemini，也可以接别的；会话存内存、存 Room、还是存云端，随你换。
+
+1.0 版本已经和 ADK Python / Java 版功能对齐，把 Python 生态里那些成熟的多智能体模式搬了过来：
+
+- **层级多智能体**：Agent 可以链式编排，把任务委派给专门的子 Agent
+- **上下文压缩**：历史对话太长时自动摘要，把 token 控制在窗口内
+- **Human-in-the-loop**：敏感操作可以暂停，等用户确认后再继续执行
+- **会话可恢复**：Agent 交互状态能序列化保存，跨会话恢复
+- **Java 互操作**：现存的 Java 应用可以直接调用 Kotlin 写的 Agent
+- **Vertex AI 集成**：企业级的 Session、RAG Memory、Memory Bank 服务
+
+这里有一条我觉得特别值得说的：**上下文压缩**。
+
+写过 AI Chat 的人都懂，多轮对话的历史管理是个绕不开的活儿。做滑动窗口会丢信息，全量塞进去会爆 token。ADK 把它做成了框架内置能力，不用自己造轮子。
+
+## 技术亮点：为什么说它是"Kotlin 原生"
+
+这是我觉得 ADK for Kotlin 最有意思的地方。
+
+### 用注解定义工具，编译期生成 schema
+
+Python 的 Agent 框架普遍靠运行时反射来解析函数签名、生成工具描述。ADK for Kotlin 走了另一条路——**用 KSP（Kotlin Symbol Processing）在编译期生成**。
+
+你的代码写起来就是普通的 Kotlin 函数：
+
+```kotlin
+class InfrastructureDiagnosticsService {
+
+    @Tool
+    suspend fun getServiceMetrics(
+        @Param("Target service or database cluster") serviceName: String,
+        @Param("Time window in minutes") windowMinutes: Int? = 15,
+    ): ServiceMetrics {
+        // 查监控后端：Datadog、Prometheus、Cloud Monitoring
+        return ServiceMetrics(
+            serviceName = serviceName,
+            cpuUsagePercent = 91.4,
+            connectionPoolUsagePercent = 98.5,
+            p99LatencyMs = 2450,
+            errorRatePercent = 4.2,
+        )
+    }
+}
+```
+
+编译期 KSP 会自动生成 `generatedTools()` 扩展函数。
+
+**这意味着三件事**：类型安全（schema 和函数签名不会对不上）、支持 suspend 函数（协程天然融入）、零运行时反射（启动快、体积小，对 Android 尤其友好）。
+
+对写惯了编译期校验的 Kotlin 开发者来说，这个设计取向应该会很有共鸣——**能在编译期发现的问题，就别拖到运行时**。
+
+### Skill 机制：渐进式披露
+
+ADK 里有个叫 Skill 的概念，我觉得设计得挺巧。
+
+你把标准作业流程写成 `SKILL.md` 放在 resources 里：
+
+```markdown
+---
+name: database-incident-triage
+description: Standard operating procedure for diagnosing database latency spikes.
+allowed-tools: [getServiceMetrics, fetchRecentDeployments, notifyOnCall]
+---
+
+# Database Incident Triage SOP
+
+1. **Telemetry**: Call `getServiceMetrics` to inspect CPU, latency, and pool saturation.
+2. **Correlation**: Call `fetchRecentDeployments` to check for recent changes.
+3. **Safety Rules**: Never restart primary nodes during peak hours.
+4. **Notify**: Broadcast diagnosis to `#production-alerts`.
+```
+
+Agent 只在需要时才把这份 SOP 加载进上下文，附带的资源文件（比如 `assets/mitigation_rules.txt`）也是按需拉取。
+
+官方管这叫 **progressive disclosure**——**token 花在刀刃上，别一上来就把所有知识灌给模型**。
+
+## 上手实战：一个数据库故障诊断 Agent
+
+官方给的示例很实在。假设线上数据库告警了，我们要个 Agent 来帮忙分诊：
+
+```kotlin
+object IncidentTriageDemoAgent {
+    val rootAgent = LlmAgent(
+        name = "incident_triage_agent",
+        model = Gemini(name = "gemini-3.8-flash"),
+        instruction = Instruction(
+            """
+            You are an SRE on-call diagnostic assistant.
+            1. Load the matching triage SOP using `load_skill`.
+            2. Follow the playbook steps strictly.
+            3. Use your diagnostics tools to inspect telemetry and notify the team.
+            """.trimIndent()
+        ),
+        // 编译期生成的函数工具（零反射）
+        tools = InfrastructureDiagnosticsService().generatedTools(),
+        // 动态技能工具集
+        toolsets = listOf(SkillToolset(NewFileSystemSource(resolveSkillsDir()))),
+    )
+}
+```
+
+跑起来：
+
+```kotlin
+fun main() = runBlocking {
+    val runner = InMemoryRunner(
+        agent = IncidentTriageDemoAgent.rootAgent,
+        appName = "IncidentTriageApp"
+    )
+
+    val alert = "ALERT [P1]: Database latency spike detected on 'users-postgres-cluster'!"
+
+    val events = runner.runAsync(
+        userId = "oncall-sre",
+        sessionId = UUID.randomUUID().toString(),
+        newMessage = Content.fromText(Role.USER, alert)
+    ).toList()
+
+    for (event in events) {
+        event.content?.parts?.firstOrNull()?.text?.let { println("Agent: $it") }
+    }
+}
+```
+
+注意这里用的是 `runBlocking` + 流式事件——**协程是这套框架的一等公民**，不是硬塞进去的。
+
+Agent 接到告警后会自动走完一套流程：加载 SOP → 调 `getServiceMetrics()` 发现连接池饱和 98.5% → 调 `fetchRecentDeployments()` 定位到 25 分钟前的一次部署 → 推送诊断到告警频道 → 建议回滚。
+
+这就是一个完整的**工具调用 + 领域知识 + 自主决策**的闭环。
+
+## Android 端侧：不只有云端
+
+如果你做移动端，ADK for Kotlin 的 Android 扩展可能更让你兴奋。
+
+移动端 AI 的难点在于平衡：云端推理能力强，但延迟、隐私、离线可用性都是问题。ADK for Kotlin 1.0 给了一套模块化的 Android 方案：
+
+- **LiteRT-LM**：端侧跑小模型
+- **ML Kit（beta）**：本地推理能力
+- **Firebase AI Logic**：云端 + 端侧的混合编排
+- **Room 持久化**：会话历史存 SQLite，进程被杀也不丢
+- **AppSearch 索引记忆**：端侧全文检索的记忆服务
+- **FileArtifactService**：生成的文件（对账单、回执）直接落本地存储
+
+官方那个"金融助手"示例把这些串起来了：
+
+```kotlin
+fun createAndroidRunner(applicationContext: Context, agent: LlmAgent): InMemoryRunner {
+    return InMemoryRunner(
+        agent = agent,
+        appName = "AndroidFinancialApp",
+        // SQLite 持久化：进程死亡也能恢复会话
+        sessionService = RoomSessionService.fromContext(applicationContext),
+        // 端侧全文索引记忆
+        memoryService = AppSearchMemoryService.fromContext(applicationContext),
+        // 应用私有文件存储
+        artifactService = FileArtifactService.fromExternalFilesDir(applicationContext)
+    )
+}
+```
+
+而且它把 HITL 做得很实用。转账这种敏感操作，定义工具时加个标记就行：
+
+```kotlin
+@Tool(
+    name = "transferFunds",
+    description = "Transfers money to another account. Requires explicit user approval.",
+    requireConfirmation = true
+)
+fun transferFunds(
+    @Param("Recipient account ID") recipientId: String,
+    @Param("Amount in USD") amount: Double
+): String { /* ... */ }
+```
+
+Agent 执行到这里会自动**暂停**，等用户在 UI 上点确认再继续。
+
+**这一条对做金融、医疗类 App 的同学，基本是刚需。**
+
+## 对 KMP 开发者意味着什么
+
+回到开头说的那个"KMP 核心"。
+
+ADK for Kotlin 的核心引擎是跨平台的，跟模型后端、会话存储、记忆系统全都解耦。这个架构选择的含义是：**Agent 的业务逻辑可以共享**。
+
+想象一下：你的 Agent 编排逻辑、工具定义、SOP 技能文件，在 Android 上能跑，在服务端 JVM 上也能跑，未来如果 iOS 侧也支持，那就是一套代码三端复用——这不就是 KMP 一直在讲的故事吗。
+
+结合我们之前聊的 **Kotlin 2.4.20**（Swift export 的 sealed class 映射、跨语言继承），Kotlin 在跨端 + AI 这两条线上的拼图，今年开始明显拼上了。
+
+对做 AI Chat 客户端的开发者来说，还有个更直接的启发：**框架级的能力（会话持久化、上下文压缩、HITL）已经有成熟实现了**，不用再从零造。
+
+## 怎么开始
+
+加依赖就行：
+
+```kotlin
+dependencies {
+    // 核心引擎 + KSP 处理器
+    implementation("com.google.adk:google-adk-kotlin-core:1.0.0")
+    ksp("com.google.adk:google-adk-kotlin-processor:1.0.0")
+
+    // Android 端侧扩展（可选）
+    implementation("com.google.adk:google-adk-kotlin-mlkit-android:1.0.0-beta")
+    implementation("com.google.adk:google-adk-kotlin-litertlm:1.0.0")
+    implementation("com.google.adk:google-adk-kotlin-firebase-android:1.0.0")
+}
+```
+
+官方资源：
+
+- 📖 文档与入门：adk.dev
+- 🐙 GitHub：github.com/google/adk-kotlin
+- 📱 Android 指南：Building Android agents with ADK
+- ☕ Java 互操作示例：ADK Kotlin Java sample
+
+## 小结
+
+ADK for Kotlin 1.0 的意义，我觉得不在于它又多了个 Agent 框架，而在于：
+
+**Kotlin 生态终于有了一套编译期安全、协程原生、跨端可复用的 Agent 开发方案。**
+
+它没有把 Python 的套路硬搬过来，而是按 Kotlin 的语言特性重新设计了一遍——KSP 代替反射、协程代替回调、KMP 核心代替单平台实现。
+
+对做 KMP 的人来说，这是个值得认真看看的东西。
+
+---
+
+*参考资料：[Announcing ADK for Kotlin 1.0 - Google Developers Blog](https://developers.googleblog.com/en/announcing-adk-for-kotlin-10-building-production-ready-ai-agents-in-kotlin-android-and-beyond/)（2026-09-09，作者 Guillaume Laforge）*

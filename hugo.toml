@@ -1,0 +1,87 @@
+baseURL = "https://mings.in/"
+title = "Trevor's Blog"
+theme = "PaperMod"
+
+defaultContentLanguage = "zh-cn"
+locale = "zh-CN"
+hasCJKLanguage = true
+enableRobotsTXT = true
+enableEmoji = true
+enableGitInfo = false
+
+[params]
+  env = "production"
+  description = "Fullstack engineer，10 年移动端。写 Kotlin Multiplatform、AI 工具与工程实践。"
+  author = "Trevor Wang"
+  keywords = ["Kotlin", "Kotlin Multiplatform", "Android", "AI Agent", "Flutter"]
+  DateFormat = "2006-01-02"
+  defaultTheme = "auto"
+  ShowReadingTime = true
+  ShowShareButtons = false
+  ShowCodeCopyButtons = true
+  ShowBreadCrumbs = true
+  ShowPostNavLinks = true
+  ShowToc = true
+  TocOpen = false
+  ShowWordCount = true
+  ShowRssButtonInSectionTermList = true
+  ShowFullTextinRSS = true
+  disableSpecial1stPost = true
+  disableScrollToTop = false
+
+  [params.homeInfoParams]
+    Title = "Trevor's Blog"
+    Content = "写了十年的移动端，现在主要折腾 Kotlin Multiplatform 和 AI 工具。这里的文章大多先在公众号发过，再归档到这里，尽量都带可复现的步骤和一手来源。"
+
+  [[params.socialIcons]]
+    name = "github"
+    url = "https://github.com/trevorwang"
+
+  [[params.socialIcons]]
+    name = "mail"
+    url = "mailto:trevor.wang@qq.com"
+
+  [params.assets]
+    favicon = ""
+
+[pagination]
+  pagerSize = 12
+
+[menu]
+  [[menu.main]]
+    identifier = "posts"
+    name = "文章"
+    url = "/posts/"
+    weight = 10
+  [[menu.main]]
+    identifier = "tags"
+    name = "标签"
+    url = "/tags/"
+    weight = 20
+  [[menu.main]]
+    identifier = "archive"
+    name = "归档"
+    url = "/archives/"
+    weight = 30
+  [[menu.main]]
+    identifier = "about"
+    name = "关于"
+    url = "/about/"
+    weight = 40
+
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+
+[markup]
+  [markup.goldmark.renderer]
+    unsafe = true
+  [markup.highlight]
+    noClasses = false
+    lineNos = false
+    codeFences = true
+  [markup.tableOfContents]
+    startLevel = 2
+    endLevel = 4
+
+[permalinks]
+  posts = "/posts/:filename/"

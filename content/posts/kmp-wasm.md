@@ -1,0 +1,270 @@
+---
+title: "KMP 的第四条腿：跑进 WebAssembly"
+date: 2026-09-21T08:25:56+08:00
+draft: false
+categories: ["公众号"]
+tags: ["Kotlin"]
+summary: "Android、iOS、桌面，这是 KMP 这几年稳定覆盖的三块地方。第四条腿是 WebAssembly——上周发的 Chasm 2.0 就跟这个方向有关。"
+cover:
+    image: "/images/kmp-wasm/cover.png"
+    alt: "KMP 的第四条腿：跑进 WebAssembly"
+    relative: false
+---
+
+## KMP 的版图
+
+Android、iOS、桌面，这是 KMP 这几年稳定覆盖的三块地方。第四条腿是 WebAssembly——上周发的 Chasm 2.0 就跟这个方向有关。
+
+不过在看它之前，有个特别容易搞混的地方得先说清楚，不然容易对整条路线的判断跑偏。
+
+## Chasm：一个用 Kotlin 写的 Wasm 运行时
+
+它的自我介绍就一句话：Chasm is a WebAssembly runtime built on Kotlin Multiplatform。翻译过来是"用 KMP 构建的 WebAssembly 运行时"。
+
+注意语序。它是"用 Kotlin 写了个能跑 Wasm 的东西"，不是"把 Kotlin 编译成 Wasm"。这两件事是反的，后面细说。
+
+项目现在 227 star（我第一版写的时候是 221），支持到 Wasm 3.0 规范（除了 Memory64 和向量指令），实现了 Tail Call、Typed Function References、Wasm GC、Multiple Memories、Exception Handling、Wide Arithmetic 这几组提案。能跑 GC 和异常处理的运行时，已经不算玩具了。
+
+2.0 是 9 月 16 日发的，作者明说了是 breaking changes：新增 Android target（min SDK 28）；JVM target 最低提到 JDK 17；重写 Host Function API，以前是传一个值列表进去、返回一个值列表，现在改成直接读写运行时的栈；移除了废弃的 macosX64 和 iosX64 target；Gradle 插件不再支持 AGP 8。
+
+补一句进度：截至我写这段（9 月 21 日），2.0 之后仓库还没有新提交、也没有新 release，作者在收反馈的阶段。这个节奏是对的——大版本刚发，先稳住再迭代。
+
+里面最让我注意的是作者交代的一句设计取舍：
+
+> 我想在每个平台的原生约束内做所有事，那意味着不用 FFI 之类的东西。
+
+做跨平台的人能体会这句话的重量。通常要让 JVM 调一个 Wasm 运行时，最省事的做法是套一层 C 接口，但他选了最费劲的那条路——每个平台写原生实现。代价是工作量翻倍，好处是不依赖 FFI、不引入 ABI 兼容的麻烦。
+
+## 别搞混：这两个方向是反的
+
+我猜不少同学看到"Kotlin"和"Wasm"放一起，第一反应是"KMP 支持 Wasm 了？"
+
+不是。这是两件方向相反的事。
+
+Kotlin/Wasm 是官方的编译目标，做的事是把 Kotlin 源码编译成 .wasm，丢到浏览器里跑。方向是往外送。
+
+Chasm 干的是相反的活：拿现成的 .wasm 文件，在自己的运行时里执行，跑在 JVM、Android、iOS 上。方向是往里接。
+
+搞混这两个，对整条路线的理解就全歪了。
+
+## KMP 的第四条腿，指的是官方那条
+
+官方文档写得很直白：Kotlin/Wasm 能把 Kotlin 编译成 WebAssembly，用来做基于 Compose Multiplatform 的 Web 应用，或者跑在浏览器外的独立 Wasm 虚拟机里（后者靠 WASI 访问平台能力）。
+
+两个要点。
+
+一是 Compose Multiplatform 的 Web 平台，编译目标就是 Kotlin/Wasm。也就是说 Compose 写的界面真的能跑在浏览器里，和 Android、iOS、桌面共用同一套 UI 代码。这才是"第四条腿"的实际含义。
+
+二是它对浏览器有硬要求：得支持 WebAssembly 的垃圾回收（WasmGC）和异常处理这两个提案。我一开始以为 Safari 会是个大坑，查完官方资料才发现门槛比想象的低。具体版本是：
+
+| 浏览器 | 最低版本 |
+|---|---|
+| Chrome / Chromium 系（Edge、Brave、Opera、三星浏览器） | 119 |
+| Firefox | 120 |
+| Safari / WebKit | 18.2 |
+| Node（跑在浏览器外时） | 22.0 |
+
+Safari 那条值得单独解释。18.2 是 2024 年底的版本，对应 iOS 18.2 / macOS 15.2；而在 iOS 和 iPadOS 上 Safari 是跟着系统走的，用户不单独更新它。所以这条门槛翻译过来其实是「用户的设备别太老」，而不是「别用 Safari」。这条要是判断错了，选型结论会完全反过来。
+
+还有个细节值得知道：异常处理提案现在有新旧两版。Kotlin 工具链两版都支持，但 `wasmJs` target 默认用的是旧版（legacy）——为了兼容面更宽。想换新版得显式配置。
+
+## 实测：Wasm 端的成本
+
+拿本机一个真实的 KMP 项目测的（含 JS 和 Wasm 双 target）。先说写第一版时的数据，环境是 Kotlin 2.4.0 + CMP 1.11.1：
+
+```
+$ ./gradlew :app:webApp:wasmJsBrowserDistribution
+→ BUILD SUCCESSFUL in 4m 10s
+→ 50 actionable tasks: 50 executed
+```
+
+4 分 10 秒，还是依赖已缓存的情况。
+
+产物是这些：
+
+| 文件 | 体积 |
+|---|---|
+| 6e23e542...wasm（skiko 渲染） | 8.25 MiB |
+| 212a0e38...wasm（业务代码） | 5.97 MiB |
+| webApp.js | 529 KiB |
+| index.html + styles.css | 约 1 KB |
+
+两个 wasm 加起来 14.2 MiB，整个目录大概 15MB。
+
+然后我把项目临时升到 **Kotlin 2.4.20 + CMP 1.12.0** 又跑了一遍：
+
+```
+$ ./gradlew :app:webApp:wasmJsBrowserDistribution
+→ BUILD SUCCESSFUL in 3m 33s
+→ 50 actionable tasks: 48 executed, 2 up-to-date
+```
+
+| | Kotlin 2.4.0 + CMP 1.11.1 | Kotlin 2.4.20 + CMP 1.12.0 |
+|---|---|---|
+| 构建耗时 | 4m 10s | **3m 33s** |
+| skiko wasm | 8.25 MiB | 8.24 MiB |
+| 业务 wasm | 5.97 MiB | **5.67 MiB** |
+| webApp.js | 529 KiB | 526 KiB |
+| wasm 合计 | 14.22 MiB | **13.91 MiB** |
+
+变化不算剧烈，但方向是清楚的：构建快了半分钟多，业务 wasm 缩了 0.30 MiB（约 5%）。
+
+**得说清楚这不是严格对等的比较**——第二次跑有两个任务命中了缓存，所以 3m33s 里有一小部分是省下来的，不是代码变快了。但"这条线在持续变快变小"这个结论是站得住的。
+
+对比一下桌面端（JVM 打包）的数据：那边是 133MB，差了差不多九倍。原因也简单——桌面那 133M 里 77M 是 JVM 运行时、20M 是 Skia，而浏览器里这两样都不用打包，没有 JVM，渲染直接交给浏览器的 Canvas 和 WebGL。
+
+这就是 Wasm 端最实在的好处，不用背运行时的包袱。
+
+不过 webpack 在构建时给了一串警告，说几个资源超出了建议上限 244 KiB，点名了 webApp.js 的 529 KiB 和两个 wasm。8.25 MiB 比它建议的数字大了三十多倍。意思是不做代码分割、不做按需加载的话，用户第一次打开页面就得下 15MB。弱网环境下这是实打实的体验问题。
+
+## 顺带说说这一个月 Web 端补了什么
+
+升版本的时候我顺手翻了两份 release notes，有几条对做中文应用的人特别有用，值得单独拎出来。
+
+**CMP 1.12（8 月 25 日）的 Web 改动**：
+
+- **Noto 字体自动加载**——遇到主题字体没覆盖的符号时，会自动去加载 Noto。做中文或多语言应用的人应该知道这意味着什么：以前生僻字直接显示成豆腐块
+- 专门修了两个豆腐块问题：输入框首次绘制时未知符号的 tofu，以及同一段文本第二次及后续绘制时的 tofu
+- 修了 `div#cmp_a11y_root` 尺寸为 0×0 的 bug。这个挺严重——它直接导致 Compose 渲染出来的内容，对基于命中测试的无障碍工具是不可见的
+- 滚轮事件现在两个轴都传（修了斜向滚动）、Chrome 上加了精确的触控板手势识别、修了 `pointercancel` 之后指针状态残留的问题（系统手势、掌拒、设备断开都会触发这个）
+- 移动浏览器上聚焦输入框导致软键盘被隐藏的问题也修了
+- 另外 web target 补上了触觉反馈支持和 `Modifier.keepScreenOn`
+
+**CMP 1.13.0-alpha01（9 月 10 日）**：
+
+- 删掉了废弃的 `compose.web.targets(...)` Gradle 插件 API。如果你老的构建脚本里还留着这个，升级会直接报错
+- 实验性支持 Web 上的系统窗口 insets
+- 新增渲染 WebGL 纹理的实验性 API
+- 浏览器或设备不支持 WebGL2 时，给一个看得懂的提示，而不是一个晦涩的崩溃
+
+**Kotlin 2.4.20（9 月 7 日）的 Wasm 后端动静更大**——这次 release notes 里跟 Wasm 相关的条目有六十多条。挑三条你迟早会碰到的：
+
+- **默认开启 range checks**（越界检查）。安全性提升，代价是一点性能
+- **弃用并禁止 `wasmExports`**。如果你在用 JS 互操作直接摸 wasm 的导出，升级会挂
+- 开始做「用 stack-switching 提案生成 suspend 函数」的原型。这条现在还用不上，但方向值得记住——它是 Wasm 未来处理异步的官方路线
+
+还有一条升级注意事项：这次为了重构可调用引用、生成统一的 fun interface 基类，**破坏了 klib 的二进制兼容性**。如果你的依赖里有别人发布的 wasmJs klib，可能需要对方也重新发布一次。这类破坏在多平台生态里比 JVM 那边敏感得多——升级前先跑一遍构建，别等到发版才发现。
+
+## 适合什么，不适合什么
+
+最划算的场景是已经有 KMP 项目、想白捡一个 Web 端，跟桌面端一样，加个 target 的事。内部工具、管理后台也行，不在乎首屏 15MB，在乎一套代码。
+
+能真正发挥优势的是逻辑复杂、UI 相对固定的应用，共享的业务代码越多，这笔账越划算。
+
+反过来，面向 C 端的营销页、轻量站点就别上了，15MB 首屏加上老浏览器不兼容，等于劝退。依赖 SEO 的产品也不行，Wasm 渲染出来的页面爬虫看不到内容。如果只需要 Web 一个平台，那直接用 React 或 Vue 更省事。
+
+判断标准可以压成一句话：你的核心价值是不是"已经写好的那套 Kotlin 代码"？是就用 Wasm，不是就别为了技术统一硬上。
+
+## 附：一个最小可跑的工程
+
+三步能跑起来。
+
+第一步，在 build.gradle.kts 里加 target：
+
+```kotlin
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
+}
+
+kotlin {
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        binaries.executable()
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.material3)
+        }
+    }
+}
+```
+
+第二步，写入口，路径是 src/wasmJsMain/kotlin/main.kt：
+
+```kotlin
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.window.ComposeViewport
+import kotlinx.browser.document
+
+@OptIn(ExperimentalComposeUiApi::class)
+fun main() {
+    ComposeViewport(document.body!!) {
+        App()
+    }
+}
+```
+
+第三步，UI 放 commonMain，三端共用：
+
+```kotlin
+@Composable
+fun App() {
+    MaterialTheme {
+        var count by remember { mutableStateOf(0) }
+        Column(Modifier.padding(24.dp)) {
+            Text("Hello, Wasm!")
+            Button(onClick = { count++ }) {
+                Text("点了 $count 次")
+            }
+        }
+    }
+}
+```
+
+跑起来：
+
+```
+./gradlew wasmJsBrowserDevelopmentRun   # 开发模式，带热重载
+./gradlew wasmJsBrowserDistribution     # 打生产包
+```
+
+ComposeViewport 是 Compose Multiplatform 在 Web/Wasm 上的挂载点，地位跟 Android 的 setContent、桌面的 application 差不多。所以"第四条腿"的接入成本就是加一个 target、写一个入口函数，UI 代码继续和别的端共用。
+
+## Chasm 怎么用
+
+回到开头那个项目，给个它的实际用法（README 里的最小示例）：
+
+```kotlin
+plugins {
+    id("io.github.charlietap.chasm.gradle") version "3.0.0-2.0.0"
+}
+
+chasm {
+    modules {
+        create("ExampleService") {
+            binary = layout.projectDirectory.file("src/main/resources/example.wasm")
+            packageName = "com.example"
+        }
+    }
+}
+```
+
+加上这段，构建会去读你的 .wasm 文件，然后生成一个 Kotlin 类 ExampleService，里面每个导出函数都变成一个能直接调的 Kotlin 函数。等于把一个现成的 Wasm 模块当普通 Kotlin 库用。
+
+它底层是个统一的 Wasm 虚拟机抽象：JVM 和 native 平台用 Chasm 自己的实现，浏览器里则复用宿主内置的 VM。
+
+能解决什么问题？比如你有一份编译成 Wasm 的 C/C++/Rust 库，想在 iOS 应用里用，以前得写 FFI 胶水，现在直接当 Kotlin 库调。又比如做一个跨平台插件系统，让插件以 Wasm 形式分发，宿主负责执行。
+
+这块是我觉得 Chasm 值得单独讲的真正原因——它展示了 Wasm 的另一半可能性。
+
+## 我的看法
+
+Chasm 和 Kotlin/Wasm 同时出现在新闻里是件好事。一个把 Kotlin 送出去，一个把 Wasm 请进来，从两个方向把两者接上了。这种双向的连接，说明生态开始有厚度。
+
+但 Wasm 真正的门槛不在技术，在体积和兼容性。15MB 的包、GC 和异常处理的浏览器要求，都是实打实的商业约束，不是工程洁癖。我测出 4 分 10 秒构建时间的时候就在想，这技术已经很成熟了——但成熟不等于适合你的产品。
+
+还有一点，KMP 这四块地方的权重差得挺远。Android 和 iOS 是十年积累，桌面端五六年，Web/Wasm 才刚起步两三年。用同一个标准要求它们不合理，你在 Android 上习惯了的顺滑，到 Wasm 上大概率要重新适应。
+
+想给项目加 Web 端的话，我的建议是先在现有项目里加个 Wasm target，跑个 Hello World 试试。就上面那份配置，半小时能验证完。重点是"在现有项目里"——你会立刻撞到真问题：依赖的库有没有 wasmJs 版本（这是最常见的卡点）、expect/actual 有没有漏掉 wasmJs 分支、构建时间多花多久。这些在玩具项目里遇不到，只有真实依赖才会暴露。花半小时撞墙，比花两周重构完发现库不支持划算得多。
+
+你会给 KMP 项目加 Web 端吗？15MB 的首屏包能接受吗？评论区聊聊。
+
+---
+
+*参考资料：CharlieTap/chasm 仓库与 2.0.0 Release Notes、Kotlin 官方文档 Kotlin/Wasm 概览与「Supported versions and configuration」、WebAssembly 官方 roadmap（GC 支持版本）、Compose Multiplatform 1.12.0 与 1.13.0-alpha01 Release Notes、Kotlin 2.4.20 Release Notes、Reddit r/Kotlin 讨论帖。实测环境：Mac mini（M4，16GB），项目为含 JS/Wasm 双 target 的 KMP 应用，分别在 Kotlin 2.4.0 + CMP 1.11.1 与 Kotlin 2.4.20 + CMP 1.12.0 下各构建一次（升级为临时操作，测完已还原项目版本）。*

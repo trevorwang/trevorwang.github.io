@@ -1,0 +1,142 @@
+---
+title: "IDEA 的智能进了 VS Code：1.0 实测"
+date: 2026-10-16T08:29:21+08:00
+draft: false
+categories: ["公众号"]
+tags: ["技术"]
+summary: "补全靠猜，跳转看运气，重命名不敢按。10 月 15 日，JetBrains 把 IntelliJ IDEA 里那套 Java 和 Kotlin 引擎做成了语言服务器扩展，推 1.0 正式版，装进 VS Code、Cursor、Google Antigravity 都能用。"
+cover:
+    image: "/images/lsp-idea/cover.png"
+    alt: "IDEA 的智能进了 VS Code：1.0 实测"
+    relative: false
+---
+
+## 在 VS Code 里写 Kotlin，过去一直是将就
+
+补全靠猜，跳转看运气，重命名不敢按。10 月 15 日，JetBrains 把 IntelliJ IDEA 里那套 Java 和 Kotlin 引擎做成了语言服务器扩展，推 1.0 正式版，装进 VS Code、Cursor、Google Antigravity 都能用。
+
+下文 VS Code 指 Visual Studio Code，IDEA 指 IntelliJ IDEA。
+
+我拿本机一个 Android 工程跟它跑了一整轮。引擎确实是 IDEA 那套，但有个附带条件得先知道：智能不在编辑器里，而在它启动后自己去下载的一台服务器里，那台服务器要一张通行证。
+
+## 它交付了什么
+
+官方 1.0 发布说明里的能力清单，加上插件自带的信息，实际到手这些东西：
+
+- 混编工程一套索引。Java、Kotlin 和两者混写的工程都认，跳到对方定义不会断链，等于不用再同时装三四个语言插件，也不用管它们互相打架。
+- 补全、跳转、检查、快速修复、重命名、格式化。这几项日常频率最高，也是这套扩展的卖点所在。
+- Maven、Gradle、Bazel 都认，JUnit 能跑，大仓库也不卡。
+- 调试器带模拟断点和异步调用栈，对协程重的代码实用。
+- Cursor 的 Agents Window 有专门支持：它可以给自己的语言服务器实例，让 agent 拿到基于 IDEA 检查的分析结果，包括 JSpecify 的空安全和 Spring 框架的特殊处理。
+- 语言服务器里还带了一个 MCP 服务端，用 ktor 的 SSE 加 MCP 的 Kotlin SDK 搭的。官方没怎么宣传这条，但对想让 agent 直接吃代码智能的人是条新路。
+
+有一条建议要照做：它和红帽、甲骨文那两家 Java 扩展在检查和快速修复上重叠，官方明确建议同时使用时把那两个关掉。Spring Tools 不冲突，可以留着。
+
+## 装起来只有一条命令
+
+装之前有个心理准备：插件市场下到的安装包只有 1.4 MB，真正的智能是运行时下载的。
+
+![扩展壳与语言服务器：1.4 MB 对 361 MB](/images/lsp-idea/fig1-shell-vs-server.png)
+
+也就是说「装个插件」被拆成了两段，一段是编辑器里的壳，一段是 JetBrains 服务器上的 361 MB。壳里只有命令、设置项和语法文件，没有一行语言分析代码；服务器下完解包要占 1.2 GB，自带一份 JetBrains Runtime 25。
+
+命令行装法，VS Code 是这样的：
+
+```bash
+code --install-extension JetBrains.intellij-server --force
+code --list-extensions --show-versions
+# jetbrains.intellij-server@1.0.27
+```
+
+1.0.27 一共发了六个平台的包，Apple 芯片、Intel、Linux 两个、Windows 两个，全部在 10 月 15 日同一天发布。Cursor 这类编辑器从 Open VSX 拿，VS Code 从微软插件市场拿。
+
+## 那 43 个设置项里，值得动的就几个
+
+插件往编辑器里塞了 43 个设置项，绝大多数保持默认就行。我会动的这么几个：
+
+| 设置项 | 默认值 | 什么时候改 |
+|---|---|---|
+| intellij.jdkForSymbolResolution | 空 | 符号解析用的 JDK 和工程跑起来的不是同一个，在这里指路径 |
+| intellij.additionalJvmArgs | 空 | 大工程分析吃紧，加 -Xmx 之类的 JVM 参数 |
+| intellij.buildTool | 自动识别 | 多模块仓库里想钉死用 Gradle 或者 Bazel |
+| intellij.workspace.reloadOnBuildFileSave | always | 每次保存构建文件就重导入，嫌吵可以改成手动 |
+| intellij.projects | 空 | 一个工作区里挂多个工程，不想让它们互相看见 |
+| intellij.dev.serverPort | -1 | 已经有一台服务器在跑，让编辑器连它，别自己再起一个 |
+| intellij.trace.server | off | 想看编辑器和服务器之间到底来回传了什么 |
+
+最后那条值得单说。默认 -1 是「我自己起一台」，改成端口号就变成「你去连那台」。这个开关存在本身说明，官方就是把语言服务器当独立进程设计的，编辑器只是它的第一个客户端。
+
+## 我干脆绕开编辑器，直接跟服务器说协议
+
+既然它是独立进程，就别绕弯子。装完的包里有个叫 intellij-server 的可执行文件，拉起来看参数，能力面比编辑器露出来的大：
+
+```bash
+./bin/intellij-server --help
+# --stdio                     stdio 模式，接编辑器
+# --socket=127.0.0.1:9999     服务模式，默认端口 9999
+# --port-file=<path>          把绑定的端口写进文件，方便客户端找
+# --idle-timeout=10m          没有客户端连就自己退
+# --multi-client              允许多个客户端同时连
+# --data-sharing=none         遥测关掉
+# --system-path=<path>        缓存和索引放哪
+```
+
+还有个细节挺有意思：首次启动要你给一个 EULA 的哈希，那个哈希就是包里 EULA.txt 的 SHA-256 前 16 位。它要你确认的是「同意这一版条款」，条款一换，哈希就变。
+
+我写了个一百来行的 Python 客户端，直接跟它说 LSP 协议：
+
+![直接跟语言服务器对话的实测输出](/images/lsp-idea/fig2-lsp-refused.png)
+
+握手 1.4 秒完成。它自报的名字是 IntelliJ Language Server by JetBrains，版本 ILS-263.7084.0，对应用 2026.3 平台。能力报回来 25 个键，其中 22 个是 Provider，补全、跳转、重命名、inlay hints、语义高亮、类型层级、调用层级这些都在。
+
+接着让它导入本机那个 Android 工程，它真干了，日志里逐条列了 Gradle 模型，从 ModuleSourceSets 到 AndroidProject，最后一行是 Successfully imported。
+
+![冷启动时间线与内存占用](/images/lsp-idea/fig3-cold-start.png)
+
+数字记一下：第一次导入（Gradle 守护进程要起、依赖要解析）21 秒；守护和缓存就位以后，导入 978 毫秒，从进程启动算起 10.5 秒进就绪。内存这块，语言服务器本体 626 MB，它自己拉起的 Gradle 守护进程另有 914 MB，而且关掉服务器之后守护还在，得等空闲三小时自己退。
+
+## 门槛在这里：不授权，它什么都不给你
+
+前面都是好话，现在说那件装之前没人告诉你的事。
+
+服务器起来了，工程导入了，就绪通知也发了。然后我请求补全，回的是这个：
+
+```json
+{"code": -32802,
+ "message": "Request refused: no active JetBrains license."}
+```
+
+悬停、文档符号、跳转一个个试过去，全是同一个码、同一句话。它能连、能算、能导入，就是不肯把结果给你。跑一句 license status 看它的说法：not licensed, feature requests are parked，未授权，功能请求挂起。
+
+官方在发布说明里把话说得很直：
+
+> With version 1.0, the extension moves out of its free preview phase. Using it now requires an IntelliJ IDEA Ultimate subscription after a 30-day trial period during which you can try out its full feature set for free.
+
+同一条还有一句更值得注意：
+
+> The license is explicitly designed for human use; we'll release an update regarding licensing models for purely agentic use soon.
+
+翻译过来是，这个许可只发给人类用，agent 专用那套的规则稍后公布。等于承认这块还没定。
+
+解锁的路它都给了命令：
+
+```bash
+./bin/intellij-server license login      # JetBrains 账号；--code 模式适合没浏览器的环境
+./bin/intellij-server license activate <激活码 / 授权文件 / 浮动许可服务器>
+./bin/intellij-server license trial      # 匿名试用 30 天
+```
+
+也能用环境变量 INTELLIJ_SERVER_LICENSE 直接喂一把 key，但只在内存里生效，重启就没了。换句话说，这一层不是编辑器里的一个开关，而是一台有自己授权状态的服务器。
+
+## 几个你会真实撞上的坑
+
+- 361 MB 是它自己下的，不是你下的。下载失败时编辑器只给一句很含糊的通知，真正的错误要去服务器自己的日志里翻，日志路径在首次启动时会打出来。
+- 它会给你的工程起一个 Gradle 守护进程，用的还是你工程里那份 Gradle wrapper。第一次打开大工程，内存账要按「服务器加守护进程」一起算，不是只加 626 MB。
+- 扩展要求 VS Code 1.105.1 以上、Node 22.20 以上，老版本装不上。
+- 授权过期那天不会有巨响。语法高亮还在，因为那是编辑器自己的语法文件在管，但补全、跳转、重构会一起安静下去。
+
+## 结语
+
+这套扩展让我改了一个看法。以前我把 IDE 的语言智能当成编辑器的一部分，现在看它更像一项订阅服务，客户端只是外壳。JetBrains 这步棋走得聪明，一套引擎在 IDE 里卖一次，在别人编辑器里再卖一次；对开发者来说，代价是多了一台要在意的服务器。
+
+你的编辑器里现在装着哪些 Kotlin 插件，会因为这一套换掉吗？评论区聊聊。
