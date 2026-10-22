@@ -14,4 +14,3 @@ Fullstack engineer，10 年移动端开发，Android 与 iOS 都做过。日常�
 这里的文章大多先在公众号发过，再归档到这里。每篇都尽量给出可复现的步骤和一手来源，写不出证据的部分会标清楚。
 
 - GitHub：<https://github.com/trevorwang>
-- 邮箱：trevor.wang@qq.com
