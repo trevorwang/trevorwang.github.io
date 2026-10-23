@@ -1,17 +1,84 @@
 baseURL = "https://mings.in/"
-title = "Trevor's Blog"
 theme = "PaperMod"
 
 defaultContentLanguage = "zh-cn"
-locale = "zh-CN"
+defaultContentLanguageInSubdir = false
 hasCJKLanguage = true
 enableRobotsTXT = true
 enableEmoji = true
 enableGitInfo = false
 
+[languages]
+  [languages.zh-cn]
+    languageName = "中文"
+    languageCode = "zh-CN"
+    locale = "zh-CN"
+    weight = 1
+    contentDir = "content"
+    title = "Trevor's Blog"
+    [languages.zh-cn.params]
+      description = "Fullstack engineer，10 年移动端。写 Kotlin Multiplatform、AI 工具与工程实践。"
+      [languages.zh-cn.params.homeInfoParams]
+        Title = "Trevor's Blog"
+        Content = "写了十年的移动端，现在主要折腾 Kotlin Multiplatform 和 AI 工具。这里的文章大多先在公众号发过，再归档到这里，尽量都带可复现的步骤和一手来源。"
+    [languages.zh-cn.menu]
+      [[languages.zh-cn.menu.main]]
+        identifier = "posts"
+        name = "文章"
+        url = "/posts/"
+        weight = 10
+      [[languages.zh-cn.menu.main]]
+        identifier = "tags"
+        name = "标签"
+        url = "/tags/"
+        weight = 20
+      [[languages.zh-cn.menu.main]]
+        identifier = "archive"
+        name = "归档"
+        url = "/archives/"
+        weight = 30
+      [[languages.zh-cn.menu.main]]
+        identifier = "about"
+        name = "关于"
+        url = "/about/"
+        weight = 40
+
+  [languages.en]
+    languageName = "English"
+    languageCode = "en-US"
+    locale = "en-US"
+    weight = 2
+    contentDir = "content/en"
+    title = "Trevor's Blog"
+    [languages.en.params]
+      description = "Fullstack engineer, ten years in mobile. Writing about Kotlin Multiplatform, AI tooling and engineering practice."
+      [languages.en.params.homeInfoParams]
+        Title = "Trevor's Blog"
+        Content = "Ten years in mobile, now mostly Kotlin Multiplatform and AI tooling. Most posts appear on WeChat first and get archived here, with reproducible steps and primary sources wherever possible."
+    [languages.en.menu]
+      [[languages.en.menu.main]]
+        identifier = "posts"
+        name = "Posts"
+        url = "/en/posts/"
+        weight = 10
+      [[languages.en.menu.main]]
+        identifier = "tags"
+        name = "Tags"
+        url = "/en/tags/"
+        weight = 20
+      [[languages.en.menu.main]]
+        identifier = "archive"
+        name = "Archive"
+        url = "/en/archives/"
+        weight = 30
+      [[languages.en.menu.main]]
+        identifier = "about"
+        name = "About"
+        url = "/en/about/"
+        weight = 40
+
 [params]
   env = "production"
-  description = "Fullstack engineer，10 年移动端。写 Kotlin Multiplatform、AI 工具与工程实践。"
   author = "Trevor Wang"
   keywords = ["Kotlin", "Kotlin Multiplatform", "Android", "AI Agent", "Flutter"]
   DateFormat = "2006-01-02"
@@ -29,10 +96,6 @@ enableGitInfo = false
   disableSpecial1stPost = true
   disableScrollToTop = false
 
-  [params.homeInfoParams]
-    Title = "Trevor's Blog"
-    Content = "写了十年的移动端，现在主要折腾 Kotlin Multiplatform 和 AI 工具。这里的文章大多先在公众号发过，再归档到这里，尽量都带可复现的步骤和一手来源。"
-
   [[params.socialIcons]]
     name = "github"
     url = "https://github.com/trevorwang"
@@ -44,28 +107,6 @@ enableGitInfo = false
 
 [pagination]
   pagerSize = 12
-
-[menu]
-  [[menu.main]]
-    identifier = "posts"
-    name = "文章"
-    url = "/posts/"
-    weight = 10
-  [[menu.main]]
-    identifier = "tags"
-    name = "标签"
-    url = "/tags/"
-    weight = 20
-  [[menu.main]]
-    identifier = "archive"
-    name = "归档"
-    url = "/archives/"
-    weight = 30
-  [[menu.main]]
-    identifier = "about"
-    name = "关于"
-    url = "/about/"
-    weight = 40
 
 [outputs]
   home = ["HTML", "RSS", "JSON"]
