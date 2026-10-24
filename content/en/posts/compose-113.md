@@ -13,116 +13,90 @@ cover:
 
 Compose Multiplatform 1.13.0-beta01 landed on October 23.
 
-I meant to write an upgrade walkthrough. Then I read the changelog and changed my mind.
+That line in the title is not a hook. This release changes a fair amount, but none of it points anywhere new. The thing that actually moves cross-platform development forward went out quietly two months earlier.
 
-This release changes plenty, but none of it points anywhere new. The heavy thing shipped two months earlier, in 1.12.
+The conclusion up front: 1.13 has exactly one new feature, and the rest is fixes. That is enough on 1.13.
 
-Start with what 1.13 actually did.
+## 1.13 is basically this
 
-## One new feature, everything else is fixes
-
-Desktop ComposePanel in SwingGraphics mode can now pace frames to the display refresh rate. Off by default. Turn it on with a system property.
+Desktop ComposePanel in SwingGraphics mode can now pace frames to the display refresh rate. Off by default. Turn it on with this property.
 
 ```kotlin
 System.setProperty("skiko.swing.frame.pacing", "true")
 ```
 
-On Linux you may also need forceTimer, which uses the system timer alongside vsync. Less precise, but sometimes necessary.
-
-Compose embedded in Swing used to run on its own clock, out of step with the screen. That gap is now closed.
-
-On iOS there is a new UIKitInteropSafeAreaInsetsPolicy, which controls how much of the safe area an embedded UIKit component sees. Mixed apps have wanted that switch for a while.
+iOS gained UIKitInteropSafeAreaInsetsPolicy, which controls how much of the safe area an embedded UIKit component sees.
 
 The only cross-platform change: AnnotatedString can now render Bullet annotations.
 
-Everything else is a fix.
+Everything else is bug fixes. Four on iOS, mostly Safari selection and focus on web, and exactly one on desktop, sluggish window resizing on Windows.
 
-iOS fixed a crash when swiping back with the keyboard open, UIStepper misplacement in interop views overlapping safe areas, stale popup layer rendering, and a crash when selecting text right to left in an iOS app running on a Mac. Two of the four are marked prerelease fix, meaning alpha02 introduced them.
+Right, that is 1.13 done.
 
-Web is mostly Safari. Text fields you cannot select on iOS 27, focus that never comes back after being lost, and the caret jumping to the end on the first tap in a multiline field. Plus a configurable font fallback URL.
+## The line worth reading is two months old
 
-Desktop got exactly one: sluggish window resizing on Windows with D3D synchronous live resize enabled.
-
-## One thing to watch
-
-The migration notes contain a single hard warning.
-
-Libraries that use the experimental DragAndDropTransferAction must be recompiled, because of a binary incompatible change.
-
-Libraries, not your app. If you are not writing drag and drop yourself, the exposure is some third-party dependency.
-
-## A digression on version numbers
-
-Material3 jumps from 1.12.0-alpha03 to 1.5.0-beta01, which looks like a downgrade until you notice JetBrains aligned Material3's version with Jetpack's. The components table lists it as Jetpack's 1.5.0-beta01.
-
-Navigation goes from 2.10.0-rc01 to 2.10.0 and Navigation3 from 1.2.0-rc01 to 1.2.0, both dropping the rc. Material3 Adaptive moves from 1.3.0 to 1.4.0-alpha01.
-
-So the real question when upgrading is not which APIs moved. It is which version numbers in your gradle files move with them.
-
-Nobody puts that in the migration notes.
-
-## I scanned my own three projects
-
-The compile test did not work out. I can curl the 1.13.0-beta01 plugin straight off Maven Central, but Gradle on this machine refuses to resolve it. Aliyun mirrors and JetBrains' dev repository did not help. Twenty minutes gone, no build.
-
-Code can still be scanned, though, and a scan tells you about risk sooner than a build does.
-
-Three Kotlin Multiplatform projects, 492 Kotlin files between them.
-
-NativeCanvas and NativePaint, the two typealiases whose deprecation level went to ERROR in 1.12, appear zero times.
-
-SwingPanel and ComposePanel, zero times.
-
-Drag and drop appears twice, both in MagnetDropTarget.kt inside Piko. It uses the standard dragAndDropTarget with AWT's Transferable to check the data type. Not the API that changed.
-
-So at the API level these three projects have no blockers for 1.13. The only thing to touch is repository configuration, since beta builds need the dev repository added back.
-
-That conclusion is not a great story. It does say something, though. With framework upgrades, the risk is rarely where you expect it.
-
-## Going back to 1.12 to find the weight
-
-1.12.0 shipped August 25. Its Highlight section has one line.
+On August 25, 1.12.0 shipped. Its Highlight section has one line.
 
 Compose Hot Reload got an MCP server, letting AI agents interact with a running Compose application in real time.
 
-Almost nobody discussed that line. Its actual weight shows up in the tool list.
+Almost nobody discussed that line. Spread the tool list out and it stops looking like a small update.
 
-One Gradle task, hotMcpServer, brings the service up, connects to the app, waits for startup, detects shutdown, and reconnects on its own. An agent connecting in gets these tools:
+## What an agent actually gets
 
-status reads app and reload state including the last error. reload and await_reload trigger a hot reload and wait for it to finish. restart and reset_ui restart the app or reset its UI.
+One Gradle task, hotMcpServer, brings the service up, connects to the app, waits for startup, detects shutdown, and reconnects on its own.
 
-take_screenshot captures a screenshot, optionally to a path. list_windows and resize_window inspect and resize windows. get_semantic_tree reads the semantic tree including dialogs, modal bottom sheets and popups. get_ui_error and get_logs read the current error and app logs.
+An agent connecting in gets these tools.
 
-Then click, type_text and scroll, which simulate user input directly.
+State and reload: status reads app and reload state and hands back the last error with it. reload and await_reload trigger a hot reload and wait for it. restart and reset_ui restart the app or reset its UI.
 
-## What that loop actually closes
+Observation: take_screenshot captures a screenshot, optionally to a path. list_windows and resize_window inspect and resize windows. get_semantic_tree reads the semantic tree, dialogs, modal bottom sheets and popups included. get_ui_error and get_logs read the current error and the app logs.
 
-Put those together and an agent can do the whole thing.
+Action: click, type_text and scroll, simulating user input directly.
 
-Change code, trigger reload, take a screenshot, read the semantic tree to confirm the structure, read logs to confirm nothing threw. Repeat if it is wrong.
+![The tool list Compose Hot Reload exposes to agents](/images/compose-113/cmp113-tools.png)
 
-No human in the loop.
+Put those three groups together and an agent has a complete loop inside Compose for the first time.
+
+## How the loop closes
+
+Before this, an agent writing Compose code hit a wall at the UI. It could edit files and compile, but it could not see what the screen looked like, could not tap a button, and had no way to know whether the change was correct.
+
+A human had to pick it up. That is the long stretch of waiting.
+
+Now the cycle runs like this. The agent edits code, calls reload to trigger a hot reload, takes a screenshot, reads the semantic tree to confirm the layout has not collapsed, checks the logs to confirm nothing threw. If it is wrong, it goes around again.
+
+No human in that loop.
 
 An agent walking that circle by itself is the closed loop.
 
-The 1.3.0-beta02 release then filled in scrollable nodes. A node that can scroll now carries scrollX or scrollY with the current offset, the max offset, and a reversed flag for content scrolling against layout direction.
+1.3.0-beta02 added the missing piece. Scrollable nodes now carry scrollX or scrollY, giving the current offset, the max offset, and a reversed flag when content scrolls against layout direction.
 
-That looks like plumbing. For an agent it matters. Before, it knew there was a scrollable container. Now it knows where the scroll sits and whether more is left.
+That looks like plumbing. For an agent it is decisive. Before, it knew a scrollable container existed. Now it knows where the scroll sits and whether there is more below. Without that, every screenshot it takes is the first screen.
 
-## Same problem as the Flutter post
+## Two different roads from Flutter
 
 Last month the Flutter team published a piece whose core claim was that code generation stopped being the bottleneck and verification is the bottleneck now.
 
-Their fix is structural. Hot reload at 200 milliseconds, widget tests at 500, state inspection by reading the widget tree directly.
+Their fix is structural. Hot reload at 200 milliseconds, widget tests at 500, state inspection by reading the widget tree directly, all deterministic structured data.
 
-JetBrains took a different route. It does not chase speed in the framework. It opens the running app to the agent and lets the agent do the verifying.
+JetBrains did not take that road. It did not optimize the framework's feedback speed. It opened the running app to the agent and let the agent do the verifying.
 
-One leans on the framework being inherently light. The other leans on opening a door.
+One leans on being light. The other leans on opening a door.
 
-I lean toward the second being more general, because it has nothing to do with the framework. It only asks that the runtime be reachable by a program and by an agent.
+I lean toward the second being more general. It has nothing to do with the framework, only with the runtime being reachable by a program. That also makes the ceiling concrete. It depends on how much the MCP server exposes. A dozen tools covers simple UI. More complex interfaces will need more.
 
-Which also means the ceiling on this route is how much that MCP server exposes. A dozen tools is enough today. More complex UI will need more.
+## What you can do tonight
 
-So my question for you. Have you tried letting an agent take over hot reload and verification in your Compose project? Or are you still changing code and clicking through it yourself?
+If you have a Compose desktop project, you can try this tonight.
+
+The prerequisite is Compose Hot Reload 1.2.0 or later. Run gradlew hotMcpServer in the project, point your agent client at the endpoint, and have it change a Composable, trigger a reload, and read the semantic tree to confirm the button has not moved.
+
+The tool list and the loop above come from the 1.12 and Hot Reload 1.3.0-beta02 release notes plus repository source. I have not run this end to end on my own machine, and I would rather say so than let you assume it is measured.
+
+Two places I would expect to get stuck on a first attempt. The MCP server only starts in dev mode, so the client needs the right port. And get_semantic_tree over dialogs is documented very briefly, so test that on its own before wiring it into anything.
+
+The first time you watch it close that loop without you, it feels different from watching it generate code.
+
+So, a question for you. Have you tried letting an agent take over hot reload and verification in your projects? Or are you still changing code and clicking through it yourself?
 
 And one more. Do you think opening the runtime to agents will move slower on web and mobile than on desktop? Desktop has a JVM to hook into directly. Mobile will need a different answer.
