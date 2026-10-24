@@ -1,13 +1,15 @@
 ---
-title: "compose-113-wechat"
+title: "Compose 1.13 发布了，但真正值得写的是 1.12"
 date: 2026-10-24T16:26:16+08:00
 draft: false
 categories: ["公众号"]
-tags: ["Kotlin"]
-summary: "Compose 1.13 发布了，但真正值得写的是 1.12"
+tags: ["Kotlin", "Compose Multiplatform"]
+summary: "1.13 这版只有一个新功能，其余全是修问题。真正重的东西藏在 1.12 里，热重载接上了 MCP。"
+cover:
+    image: "/images/compose-113/cover.png"
+    alt: "Compose 1.13 发布了，但真正值得写的是 1.12"
+    relative: false
 ---
-
-Compose 1.13 发布了，但真正值得写的是 1.12
 
 10 月 23 日，Compose Multiplatform 1.13.0-beta01 发了。我本来打算直接做升级实测，翻完 changelog 又改了主意。
 
