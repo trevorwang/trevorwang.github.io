@@ -1,13 +1,15 @@
 ---
-title: "cf-security-skill-wechat"
+title: "4.5 万星的安全审计 skill，一半代码在防 AI 编漏洞"
 date: 2026-10-25T12:36:03+08:00
 draft: false
 categories: ["公众号"]
-tags: ["技术"]
-summary: "4.5 万星的安全审计 skill，一半代码在防 AI 编漏洞"
+tags: ["Security", "AI Agent", "Code Review"]
+summary: "文档 1778 行，校验侧 3498 行。Cloudflare 这个开源审计 skill 最重的部分不是找漏洞，是防止 agent 编漏洞。"
+cover:
+    image: "/images/cf-security-skill/cover.png"
+    alt: "4.5 万星的安全审计 skill，一半代码在防 AI 编漏洞"
+    relative: false
 ---
-
-4.5 万星的安全审计 skill，一半代码在防 AI 编漏洞
 
 GitHub 上有个仓库，cloudflare/security-audit-skill，四万四千多星。它的作用是让 coding agent 变成安全审计员。只读 README 的话，你会以为这就是又一个 prompt 合集，塞一堆攻击手法让模型照着查。
 
