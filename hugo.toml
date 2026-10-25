@@ -14,7 +14,7 @@ enableGitInfo = false
     languageCode = "zh-CN"
     locale = "zh-CN"
     weight = 1
-    contentDir = "content"
+    contentDir = "content/zh-cn"
     title = "Trevor's Blog"
     [languages.zh-cn.params]
       description = "Fullstack engineer，10 年移动端。写 Kotlin Multiplatform、AI 工具与工程实践。"
