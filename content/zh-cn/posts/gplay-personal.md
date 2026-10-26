@@ -3,8 +3,8 @@ title: "交完 25 美元才知道，Google Play 给自己装应用不要钱"
 date: 2026-10-26T09:31:22+08:00
 draft: false
 categories: ["公众号"]
-tags: ["Android"]
-summary: "十月我为了一个开发者账号忙了小半个月。25 美元报名费，身份验证要政府签发的证件，付款资料的地址必须和证件上一字不差，新注册的个人号还得先找 12 个测试人员连续挂满 14 天，中途账号还被封过一次，重新走了一遍流程。这三件事我都写过。"
+tags: ["Android", "Google Play", "AI 编程"]
+summary: "10 月谷歌给 Google Play 开了个新入口：对着 AI 说句话生成的应用，不用开发者账号、不用 25 美元、不过审核，扫码就装。代价是只有你自己能装。"
 cover:
     image: "/images/gplay-personal/cover.png"
     alt: "交完 25 美元才知道，Google Play 给自己装应用不要钱"
