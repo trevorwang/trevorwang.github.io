@@ -3,8 +3,8 @@ title: "JetBrains 终端换芯，AI agent 太能吃了"
 date: 2026-10-28T13:35:29+08:00
 draft: false
 categories: ["公众号"]
-tags: ["AI Agent"]
-summary: "在 IDE 的终端里用 Claude Code 这类 CLI agent，大概都碰到过同一件事。敲了一句话，想按 Shift+Enter 换行再补两句，结果半句话直接发出去了，agent 已经开始按残缺的指令干活。"
+tags: ["IntelliJ IDEA", "AI Agent", "终端"]
+summary: "IDE 的终端换了引擎：用了 13 年的 JediTerm 让位给 Ghostty 的核心库，理由写在 AI agent 那行。我把新版安装包拆开，验了一遍。"
 cover:
     image: "/images/libghostty/cover.png"
     alt: "JetBrains 终端换芯，AI agent 太能吃了"
