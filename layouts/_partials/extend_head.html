@@ -1,0 +1,12 @@
+{{- /* 站点级 <head> 自定义内容。PaperMod 每次渲染都会 partial "extend_head.html" 到这里。 */ -}}
+{{- /* 只在生产构建注入 GA，本地 hugo server 不污染统计数据。 */ -}}
+{{- if hugo.IsProduction }}
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-SLPQXC1Z5W"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-SLPQXC1Z5W');
+</script>
+{{- end }}
