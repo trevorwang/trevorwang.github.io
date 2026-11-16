@@ -38,6 +38,11 @@ enableGitInfo = false
         url = "/archives/"
         weight = 30
       [[languages.zh-cn.menu.main]]
+        identifier = "projects"
+        name = "项目"
+        url = "/projects/"
+        weight = 35
+      [[languages.zh-cn.menu.main]]
         identifier = "about"
         name = "关于"
         url = "/about/"
@@ -71,6 +76,11 @@ enableGitInfo = false
         name = "Archive"
         url = "/en/archives/"
         weight = 30
+      [[languages.en.menu.main]]
+        identifier = "projects"
+        name = "Projects"
+        url = "/en/projects/"
+        weight = 35
       [[languages.en.menu.main]]
         identifier = "about"
         name = "About"
