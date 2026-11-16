@@ -13,6 +13,6 @@ These past two years I mostly write about two things. One is shipping Kotlin Mul
 
 Most posts here appear on WeChat first and get archived afterwards. Each one tries to give reproducible steps and primary sources. Where I cannot back something up, I say so.
 
-I also keep a few open-source projects going long term. retrofit.dart is a type-safe REST client generator for Dart, built on dio, with close to 700,000 downloads on pub.dev in the last 30 days. openai_dart is a Dart client for the OpenAI API, covering both REST and the realtime WebSocket / WebRTC channels. chatgpt_book_code is the companion code for the Juejin booklet *Flutter in Practice: Building a ChatGPT Client*. Versions, numbers and the story behind each one live on the [Projects](/en/projects/) page.
+I also keep a few open-source projects going long term. retrofit.dart is a type-safe REST client generator for Dart, built on dio, with close to 700,000 downloads on pub.dev in the last 30 days. chatgpt_book_code is the companion code for the Juejin booklet *Flutter in Practice: Building a ChatGPT Client*. Versions, numbers and the story behind each one live on the [Projects](/en/projects/) page.
 
 - GitHub: <https://github.com/trevorwang>
