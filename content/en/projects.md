@@ -15,7 +15,7 @@ A type-safe REST client generator built on dio, with implementation generated at
 
 You write an abstract class with annotations and it generates the request code for you: path parameters, query parameters, form and multipart bodies, interceptors, error handling. The design follows Chopper and Square's Retrofit, bringing the declarative interface style from Android over to Dart.
 
-Been at it for six years now. From 0.0.1 in April 2019 to 4.10.0 today, 63 releases in total. On pub.dev it has 2,116 likes and 698,997 downloads in the last 30 days; 1,179 stars on GitHub. Only two dependencies: `dio` and `meta`.
+Been at it for six years now. From 0.0.1 in April 2019 to 4.10.0 today, 63 releases in total. On pub.dev it has 2,116 likes and 684,106 downloads in the last 30 days; 1,179 stars on GitHub. Only two dependencies: `dio` and `meta`.
 
 ```dart
 @RestApi()
@@ -35,9 +35,9 @@ abstract class UserApi {
 
 A Dart client for the OpenAI API, covering both the REST endpoints and the realtime WebSocket and WebRTC channels, with typed wrappers for GPT, image, audio and the Responses API.
 
-It started in October 2023, when the Dart side of the GPT ecosystem was still mostly empty. It is now on 74 releases, with 12.0.0 published on November 5. On pub.dev it has 139 likes, a full 160/160 score, and 47,642 downloads in the last 30 days. Dependencies are `http`, `web_socket`, `crypto`, `logging`, `meta` and `http_parser` — nothing heavy.
+It started in October 2023, when the Dart side of the GPT ecosystem was still mostly empty. It is now on 74 releases, with 12.0.0 published on November 5. On pub.dev it has 139 likes, a full 160/160 score, and 46,019 downloads in the last 30 days. Dependencies are `http`, `web_socket`, `crypto`, `logging`, `meta` and `http_parser` — nothing heavy.
 
-There is one contrast worth pointing out: nine stars on GitHub against forty-seven thousand monthly downloads on pub.dev. Few people read the repository, many people use the package. Most consumers never look at the source, they just add it as a dependency. That is exactly why I keep maintaining it. A tool should not require being studied.
+There is one contrast worth pointing out: nine stars on GitHub against forty-six thousand downloads in the last 30 days on pub.dev. Few people read the repository, many people use the package. Most consumers never look at the source, they just add it as a dependency. That is exactly why I keep maintaining it. A tool should not require being studied.
 
 - pub.dev: <https://pub.dev/packages/openai_dart>
 - GitHub: <https://github.com/trevorwang/openai_dart>

@@ -20,7 +20,7 @@ enableGitInfo = false
       description = "Fullstack engineer，10 年移动端。写 Kotlin Multiplatform、AI 工具与工程实践。"
       [languages.zh-cn.params.homeInfoParams]
         Title = "Trevor's Blog"
-        Content = "写了十年的移动端，现在主要折腾 Kotlin Multiplatform 和 AI 工具。这里的文章大多先在公众号发过，再归档到这里，尽量都带可复现的步骤和一手来源。\n\n手上还长期维护着两个开源项目：retrofit.dart，Dart 的类型安全 REST 客户端生成器，跑在 dio 上，pub.dev 上月下载将近七十万；chatgpt_book_code，掘金小册《Flutter 实战：ChatGPT 客户端开发》的配套代码。版本、数据和来龙去脉都在[项目](/projects/)页。"
+        Content = "写了十年的移动端，现在主要折腾 Kotlin Multiplatform 和 AI 工具。这里的文章大多先在公众号发过，再归档到这里，尽量都带可复现的步骤和一手来源。\n\n手上还长期维护着两个开源项目：retrofit.dart，Dart 的类型安全 REST 客户端生成器，跑在 dio 上，pub.dev 上近 30 天下载将近七十万；chatgpt_book_code，掘金小册《Flutter 实战：ChatGPT 客户端开发》的配套代码。版本、数据和来龙去脉都在[项目](/projects/)页。"
     [languages.zh-cn.menu]
       [[languages.zh-cn.menu.main]]
         identifier = "posts"
